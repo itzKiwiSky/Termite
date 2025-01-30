@@ -7,8 +7,8 @@ function love.load()
 
     local termfont = love.graphics.newFont("phoenixbios.ttf", 18)
 
-    term = terminal.new(love.graphics.getWidth(), love.graphics.getHeight() - termfont:getHeight(), termfont)
-    term.speed = 500
+    term = terminal.new(love.graphics.getWidth(), love.graphics.getHeight() - termfont:getHeight(), termfont, nil, nil)
+    term.speed = 5000
 
     love.keyboard.setKeyRepeat(true)
 
@@ -18,8 +18,6 @@ function love.load()
     for i = 1, 100, 1 do
         term:puts(string.format("hello world %s \n", i))
     end
-
-    term:execute("clear", {x = 1, y = 1, w = 5, h = 5})
 end
 
 function love.draw()
@@ -36,19 +34,6 @@ function love.draw()
 end
 
 function love.update(elapsed)
-    if canProceed then
-        term:update(elapsed)
-        if needTrigger then
-            canProceed = false
-        end
-    end
+    term:update(elapsed)
 end
 
-function love.keypressed(k)
-    if k == "return" then
-        canProceed = true
-    end
-    if k == "f1" then
-        needTrigger = not needTrigger
-    end
-end

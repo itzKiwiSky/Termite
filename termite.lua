@@ -112,7 +112,7 @@ local Termite = {
 
 Termite.__index = Termite
 
-function Termite.new(width, height, font, customCharW, customCharH)
+function Termite.new(width, height, font, customCharW, customCharH, options)
     local self = setmetatable({}, Termite)
     
     local charWidth = customCharW or font:getWidth('█')
@@ -146,6 +146,10 @@ function Termite.new(width, height, font, customCharW, customCharH)
     self.stateStackIndex = #self.stateStack
 
     self.clear = {0, 0, 0}
+
+    self.useInterrupt = false
+    self.interruptKey = "return"
+    self.isInterrupted = false
 
     self.canvas = love.graphics.newCanvas(width, height)
     self.buffer = {}
@@ -241,7 +245,6 @@ function Termite.new(width, height, font, customCharW, customCharH)
     -- to easily integrate new commands --
     self.commands = {
         ["clear"] = function(self, x, y, w, h)
-            --local x, y, w, h = args.x or args[1], args.y or args[2], args.w or args[3], args.h or args[4]
             assertType(x, "number")
             assertType(y, "number")
             assertType(w, "number")
@@ -283,8 +286,10 @@ function Termite.new(width, height, font, customCharW, customCharH)
 
             self.cursorVisible = val
         end,
-        ["scroll"] = function(self, lines)
-            rollup(self, lines)
+        ["reverseCursor"] = function(self, val)
+            assertType(val, "boolean")
+            
+            self.cursorReversed = val
         end
     }
 
@@ -296,6 +301,28 @@ function Termite.new(width, height, font, customCharW, customCharH)
     self.canvas:renderTo(function()
         love.graphics.clear(self.clear)
     end)
+
+    if options then
+        for k, p in pairs(self) do
+            if options[k] then
+                self[k] = options[k]
+            end
+        end
+    end
+    
+    if self.useInterrupt then
+        local ogkeypressed = love.keypressed
+
+        love.keypressed = function(k, scancode, isrepeat)
+            if k == self.interruptKey then
+                self.isInterrupted = false
+            end
+
+            if ogkeypressed then
+                ogkeypressed(k, scancode, isrepeat)
+            end
+        end
+    end
 
     return self
 end
@@ -353,6 +380,12 @@ end
 --- UPdate the terminal engine
 ---@param elapsed number
 function Termite:update(elapsed)
+    if self.useInterrupt then
+        if self.isInterrupted then
+            return
+        end
+    end
+
     self.dirty = true
     if #self.stdin == 0 then return end
     local frameBudget = self.speed * elapsed + self.accumulator
@@ -407,6 +440,10 @@ function Termite:update(elapsed)
         table.insert(rest, self.stdin[i])
     end
     self.stdin = rest
+
+    if self.useInterrupt then
+        self.isInterrupted = true
+    end
 end
 
 function Termite:execute(command, ...)
@@ -428,6 +465,12 @@ function Termite:puts(x, y, ...)
     for i, p in utf8.codes(strData) do
         table.insert(self.stdin, utf8.char(p))
     end
+end
+
+
+--- put this function o love.keypressed --
+function Termite:interrupt()
+    
 end
 
 
