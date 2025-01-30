@@ -18,6 +18,20 @@ local function clearTable(t)
     return t
 end
 
+-- used internally for better assert --
+local function assertType(val, typestr)
+    assert(type(val) ==  tostring(typestr), string.format("[TermiteError] : Invalid argument type. Expected '%s', got '%s'", tostring(typestr), type(val)))
+end
+
+-- used internally for better error messages --
+local function listStyle(styletable)
+    local tbl = {}
+    for k, v in pairs(styletable) do
+        table.insert(tbl, tostring(k))
+    end
+    return tbl
+end
+
 -- Origin lv100 by Eiyeron, OG Origin of this snippet : https://stackoverflow.com/a/43139063
 local function utf8Sub(s, i, j)
     i = utf8.offset(s, i)
@@ -217,32 +231,68 @@ function Termite.new(width, height, font, customCharW, customCharH)
     }
 
     self.fillStyles = {
-        {
-            ["block"] = "█",
-            ["semigrid"] = "▓",
-            ["halfgrid"] = "▒",
-            ["grid"] = "░"
-        }
+        ["block"] = "█",
+        ["semigrid"] = "▓",
+        ["halfgrid"] = "▒",
+        ["grid"] = "░"
     }
 
     -- this interface is also exposed to edit --
     -- to easily integrate new commands --
     self.commands = {
-        ["clear"] = function()
-            
-        end,
-        ["pushstate"] = function(args)
-            -- lifo stack based --
-            table.insert(this.stateStack, #this.stateStack, this.buffer)
-            self.dirty = true   -- force the engine to re-render the terminal --
-        end,
-        ["setcursorpos"] = function(args)
+        ["clear"] = function(self, x, y, w, h)
+            --local x, y, w, h = args.x or args[1], args.y or args[2], args.w or args[3], args.h or args[4]
+            assertType(x, "number")
+            assertType(y, "number")
+            assertType(w, "number")
+            assertType(h, "number")
 
-            self.cursorX, self.cursorY = args.x, args.y
+            for y = y, (y + h) - 1 do
+                for x = x, (x + w) - 1 do
+                    updateStdinChar(self, x, y, " ")
+                    self.buffer[y][x] = " "
+                end
+            end
+        end,
+        ["fill"] = function(self, stylename, x, y, w, h)
+            assertType(stylename, "string")
+            assertType(x, "number")
+            assertType(y, "number")
+            assertType(w, "number")
+            assertType(h, "number")
+
+            local fillStylesNames = listStyle(self.fillStyles)
+            assert(self.fillStyles[stylename], ("[TermiteError] : Invalid style '%s'. expected styles: %s"):format(stylename, table.concat(fillStylesNames, ", ")))
+
+            local char = self.fillStyles[stylename]
+            for y = y, (y + h) - 1 do
+                for x = x, (x + w) - 1 do
+                    updateStdinChar(self, x, y, char)
+                    self.buffer[y][x] = char
+                end
+            end
+        end,
+        ["setCursorPos"] = function(self, x, y)
+            assertType(x, "number")
+            assertType(y, "number")
+
+            self.cursorX, self.cursorY = x or 1, y or 1
+        end,
+        ["setCursorVisible"] = function(self, val)
+            assertType(val, "boolean")
+
+            self.cursorVisible = val
+        end,
+        ["scroll"] = function(self, lines)
+            rollup(self, lines)
         end
     }
 
-    --local prevCanvas = love.graphics.getCanvas()
+    -- for easy use, expose all commands as termite functions
+    for fname, func in pairs(self.commands) do
+        Termite[fname] = func
+    end
+
     self.canvas:renderTo(function()
         love.graphics.clear(self.clear)
     end)
@@ -324,8 +374,6 @@ function Termite:update(elapsed)
                 self.cursorY = self.cursorY + 1
                 
                 if self.cursorY > self.height then
-                    --terminal_roll_up(terminal, terminal.cursor_y - terminal.height)
-                    print(self.cursorY - self.height, self.cursorY, self.height)
                     rollup(self, self.cursorY - self.height)
                     self.cursorY = self.height
                     self.dirty = true
@@ -333,15 +381,12 @@ function Termite:update(elapsed)
 
                 self.dirty = true
             else
-                --terminal_update_character(terminal, terminal.cursor_x, terminal.cursor_y, char_or_command)
                 updateStdinChar(self, self.cursorX, self.cursorY, charCommand)
                 self.cursorX = self.cursorX + 1
                 if self.cursorX > self.width then
                     self.cursorX = 1
                     self.cursorY = self.cursorY + 1
-                    --wrap_if_bottom(terminal)
                     if self.cursorY >= self.height then
-                        print(self.cursorY - self.height)
                         rollup(self, self.cursorY - self.height)
                     end
                 end
@@ -349,7 +394,9 @@ function Termite:update(elapsed)
             end
         else
             if self.commands[charCommand.command] then
-                self.commands[charCommand.command](unpack(charCommand.args))
+                self.commands[charCommand.command](self, unpack(charCommand.args))
+            else
+                print(("[TermiteError] : Invalid command name, not found command named '%s'"):format(charCommand.command))
             end
         end
     end

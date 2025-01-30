@@ -12,9 +12,14 @@ function love.load()
 
     love.keyboard.setKeyRepeat(true)
 
+    --term:execute("setcursorpos", { 20, 20 })
+
+
     for i = 1, 100, 1 do
         term:puts(string.format("hello world %s \n", i))
     end
+
+    term:execute("clear", {x = 1, y = 1, w = 5, h = 5})
 end
 
 function love.draw()
