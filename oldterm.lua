@@ -30,8 +30,8 @@ local function utf8_sub(s,i,j)
     return string.sub(s,i,j)
 end
 
-local function terminal_update_character(terminal, x, y, new_char)
-    terminal.buffer[y][x] = new_char
+local function terminal_update_character(terminal, x, y, newChar)
+    terminal.buffer[y][x] = newChar
     local char_color = terminal.cursor_color
     local char_backcolor = terminal.cursor_backcolor
     terminal.state_buffer[y][x].color = {char_color[1], char_color[2], char_color[3], char_color[4]}

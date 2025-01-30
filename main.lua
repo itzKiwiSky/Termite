@@ -1,14 +1,20 @@
 function love.load()
     utf8 = require 'utf8'
+    terminal = require 'termite'
 
-    terminal = require 'kiwiterm'
+    needTrigger = false
+    canProceed = not needTrigger
 
     local termfont = love.graphics.newFont("phoenixbios.ttf", 18)
 
     term = terminal.new(love.graphics.getWidth(), love.graphics.getHeight() - termfont:getHeight(), termfont)
-    term.speed = 10000
+    term.speed = 500
 
     love.keyboard.setKeyRepeat(true)
+
+    for i = 1, 100, 1 do
+        term:puts(string.format("hello world %s \n", i))
+    end
 end
 
 function love.draw()
@@ -25,5 +31,19 @@ function love.draw()
 end
 
 function love.update(elapsed)
-    term:update(elapsed)
+    if canProceed then
+        term:update(elapsed)
+        if needTrigger then
+            canProceed = false
+        end
+    end
+end
+
+function love.keypressed(k)
+    if k == "return" then
+        canProceed = true
+    end
+    if k == "f1" then
+        needTrigger = not needTrigger
+    end
 end

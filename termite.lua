@@ -1,5 +1,70 @@
 local utf8 = require 'utf8'
 
+-- origin: Lume by rxi
+local function clearTable(t)
+    local function lpiter(x)
+        if type(x) == "table" and x[1] ~= nil then
+            return ipairs
+        elseif type(x) == "table" then
+            return pairs
+        end
+    end
+
+    local curIter = lpiter(t)
+    for k in curIter(t) do
+        t[k] = nil
+    end
+
+    return t
+end
+
+-- Origin lv100 by Eiyeron, OG Origin of this snippet : https://stackoverflow.com/a/43139063
+local function utf8Sub(s, i, j)
+    i = utf8.offset(s, i)
+    j = utf8.offset(s, j + 1) - 1
+    return string.sub(s, i, j)
+end
+
+local function updateStdinChar(this, x, y, newChar)
+    this.buffer[y][x] = newChar
+    local charColor = this.cursorColor
+    local charBackColor = this.cursorBackColor
+
+    this.stateBuffer[y][x].color = {charColor[1], charColor[2], charColor[3], charColor[4]}
+    this.stateBuffer[y][x].backcolor = {charBackColor[1], charBackColor[2], charBackColor[3], charBackColor[4]}
+    this.stateBuffer[y][x].reversed = this.cursorReversed
+    this.stateBuffer[y][x].dirty = true
+end
+
+local function redrawState(this)
+    -- force a total redraw of the screen --
+    for y = 1, this.height, 1 do
+        for x = 1, this.width, 1 do
+            this.stateBuffer[y][x].dirty = true
+        end
+    end
+end
+
+-- if the cursor is on the max height of terminal, take a snapshot of the terminal and move all data up --
+local function rollup(this, lines)
+    local row = #this.buffer
+    local col = #this.buffer[1]
+    local lines = math.min(lines, row - 1)
+
+    for r = 1, row - 1, 1 do
+        this.buffer[r] = this.buffer[r + lines]
+    end
+
+    for r = row - lines + 1, row, 1 do
+        this.buffer[r] = {}
+        for c = 1, col, 1 do
+            this.buffer[r][c] = " "
+        end
+
+        redrawState(this)
+    end
+end
+
 --- @class Termite
 local Termite = {
     _NAME = "Termite",
@@ -33,13 +98,6 @@ local Termite = {
 
 Termite.__index = Termite
 
--- Origin lv100 by Eiyeron, OG Origin of this snippet : https://stackoverflow.com/a/43139063
-local function utf8Sub(s, i, j)
-    i = utf8.offset(s, i)
-    j = utf8.offset(s, j + 1) - 1
-    return string.sub(s, i, j)
-end
-
 function Termite.new(width, height, font, customCharW, customCharH)
     local self = setmetatable({}, Termite)
     
@@ -69,6 +127,9 @@ function Termite.new(width, height, font, customCharW, customCharH)
     self.charCost = 1
     self.accumulator = 0
     self.stdin = {}     -- used to store the terminal commands --
+
+    self.stateStack = {}        -- save snapshots of the terminal state --
+    self.stateStackIndex = #self.stateStack
 
     self.clear = {0, 0, 0}
 
@@ -157,7 +218,6 @@ function Termite.new(width, height, font, customCharW, customCharH)
 
     self.fillStyles = {
         {
-            ["blank"] = " ",
             ["block"] = "█",
             ["semigrid"] = "▓",
             ["halfgrid"] = "▒",
@@ -170,30 +230,37 @@ function Termite.new(width, height, font, customCharW, customCharH)
     self.commands = {
         ["clear"] = function()
             
+        end,
+        ["pushstate"] = function(args)
+            -- lifo stack based --
+            table.insert(this.stateStack, #this.stateStack, this.buffer)
+            self.dirty = true   -- force the engine to re-render the terminal --
+        end,
+        ["setcursorpos"] = function(args)
+
+            self.cursorX, self.cursorY = args.x, args.y
         end
     }
 
-    local prevCanvas = love.graphics.getCanvas()
-    love.graphics.setCanvas(self.canvas)
-    love.graphics.clear(self.clear_color)
-    love.graphics.setCanvas(prevCanvas)
+    --local prevCanvas = love.graphics.getCanvas()
+    self.canvas:renderTo(function()
+        love.graphics.clear(self.clear)
+    end)
 
     return self
 end
 
---- @class Termite.draw
---- Draw the terminal to the screen
+--- Draw the terminal
 function Termite:draw()
     local chWidth, chHeight = self.charWidth, self.charHeight
-    if terminal.dirty then
+    if self.dirty then
         local prevColor = { love.graphics.getColor() }
-        local prevCanvas = love.graphics.getCanvas()
 
         love.graphics.push()
         love.graphics.origin()
 
-        love.graphics.setCanvas(self.canvas)
-            local font_height = self.font:getHeight()
+        self.canvas:renderTo(function()
+            local fontHeight = self.font:getHeight()
             for y, row in ipairs(self.buffer) do
                 for x, char in ipairs(row) do
                     local state = self.stateBuffer[y][x]
@@ -205,7 +272,7 @@ function Termite:draw()
                         else
                             love.graphics.setColor(unpack(state.backcolor))
                         end
-                        love.graphics.rectangle("fill", left, top + (font_height - chHeight), self.charWidth, self.charHeight)
+                        love.graphics.rectangle("fill", left, top + (fontHeight - chHeight), self.charWidth, self.charHeight)
 
                         -- Character
                         if state.reversed then
@@ -218,9 +285,9 @@ function Termite:draw()
                     end
                 end
             end
-            terminal.dirty = false
+            self.dirty = false
             love.graphics.pop()
-        love.graphics.setCanvas(prevCanvas)
+        end)
 
         love.graphics.setColor(unpack(prevColor))
     end
@@ -233,8 +300,88 @@ function Termite:draw()
     end
 end
 
+--- UPdate the terminal engine
+---@param elapsed number
 function Termite:update(elapsed)
-    
+    self.dirty = true
+    if #self.stdin == 0 then return end
+    local frameBudget = self.speed * elapsed + self.accumulator
+
+    local stdIndex = 1
+    while frameBudget > self.charCost do
+        -- simulate the char incrementation in each iteration --
+        local charCommand = self.stdin[stdIndex]
+        if charCommand == nil then break end
+        stdIndex = stdIndex + 1
+        frameBudget = frameBudget - self.charCost
+
+        -- detect special characters else execute the command --
+        if type(charCommand) == "string" then
+            if charCommand == '\b' then
+                self.cursorX = math.max(self.cursorX - 1, 1)
+            elseif charCommand == '\n' then
+                self.cursorX = 1
+                self.cursorY = self.cursorY + 1
+                
+                if self.cursorY > self.height then
+                    --terminal_roll_up(terminal, terminal.cursor_y - terminal.height)
+                    print(self.cursorY - self.height, self.cursorY, self.height)
+                    rollup(self, self.cursorY - self.height)
+                    self.cursorY = self.height
+                    self.dirty = true
+                end
+
+                self.dirty = true
+            else
+                --terminal_update_character(terminal, terminal.cursor_x, terminal.cursor_y, char_or_command)
+                updateStdinChar(self, self.cursorX, self.cursorY, charCommand)
+                self.cursorX = self.cursorX + 1
+                if self.cursorX > self.width then
+                    self.cursorX = 1
+                    self.cursorY = self.cursorY + 1
+                    --wrap_if_bottom(terminal)
+                    if self.cursorY >= self.height then
+                        print(self.cursorY - self.height)
+                        rollup(self, self.cursorY - self.height)
+                    end
+                end
+                self.dirty = true
+            end
+        else
+            if self.commands[charCommand.command] then
+                self.commands[charCommand.command](unpack(charCommand.args))
+            end
+        end
+    end
+
+    self.accumulator = frameBudget
+    local rest = {}
+    for i = stdIndex, #self.stdin do
+        table.insert(rest, self.stdin[i])
+    end
+    self.stdin = rest
 end
+
+function Termite:execute(command, ...)
+    table.insert(self.stdin, { command = command, args = { ... } })
+end
+
+function Termite:puts(x, y, ...)
+    local strData
+    -- argument processing
+    -- shortcut : no coordinates => print at cursor position
+    if type(x) == "string" then
+        strData = x
+    else
+        self.cursorX = x
+        self.cursorY = y
+        strData = string.format(...)
+    end
+
+    for i, p in utf8.codes(strData) do
+        table.insert(self.stdin, utf8.char(p))
+    end
+end
+
 
 return Termite
