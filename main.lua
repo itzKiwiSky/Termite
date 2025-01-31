@@ -1,23 +1,29 @@
 function love.load()
     utf8 = require 'utf8'
     terminal = require 'termite'
-
-    needTrigger = false
-    canProceed = not needTrigger
+    inspect = require 'inspect'
 
     local termfont = love.graphics.newFont("phoenixbios.ttf", 18)
 
-    term = terminal.new(love.graphics.getWidth(), love.graphics.getHeight() - termfont:getHeight(), termfont, nil, nil)
-    term.speed = 5000
+    term = terminal.new(love.graphics.getWidth(), love.graphics.getHeight() - termfont:getHeight(), termfont, nil, nil, {
+    useInterrupt = true
+    })
+    term.speed = 50
+
 
     love.keyboard.setKeyRepeat(true)
 
-    --term:execute("setcursorpos", { 20, 20 })
-
-
-    for i = 1, 100, 1 do
+    --[[
+    for i = 1, 1000, 1 do
         term:puts(string.format("hello world %s \n", i))
     end
+    ]]--
+    
+    --print(term.width, term.height)
+    term:setCursorBackColor("brightCyan")
+    term:setCursorColor("black")
+    term:clear(4, 4, term.width - 8, term.height - 8)
+    term:puts("Termite terminal emulator", 10, 6)
 end
 
 function love.draw()

@@ -51,6 +51,7 @@ local function updateStdinChar(this, x, y, newChar)
 end
 
 local function redrawState(this)
+    --print("adhsajdahjda")
     -- force a total redraw of the screen --
     for y = 1, this.height, 1 do
         for x = 1, this.width, 1 do
@@ -130,8 +131,8 @@ function Termite.new(width, height, font, customCharW, customCharH, options)
     self.cursorY = 1
     self.savedCursorX = 1
     self.savedCursorY = 1
-    self.cursorColor = {1, 1, 1, 1}
-    self.cursorBackColor = {0, 0, 0, 1}
+    self.cursorColor = {1, 1, 1}
+    self.cursorBackColor = {0, 0, 0}
     self.cursorReversed = false
     self.dirty = false      -- if char on the terminal is 'dirty' means that the terminal engine will render again the char
     
@@ -144,8 +145,7 @@ function Termite.new(width, height, font, customCharW, customCharH, options)
 
     self.stateStack = {}        -- save snapshots of the terminal state --
     self.stateStackIndex = #self.stateStack
-
-    self.clear = {0, 0, 0}
+    self.currentScheme = "basic"
 
     self.useInterrupt = false
     self.interruptKey = "return"
@@ -161,8 +161,8 @@ function Termite.new(width, height, font, customCharW, customCharH, options)
         for j = 1, numCols do
             row[j] = ' '
             stateRow[j] = {
-                color = {1, 1, 1, 1},
-                backcolor = {0, 0, 0, 1},
+                color = self.cursorColor,
+                backcolor = self.cursorBackColor,
                 dirty = true
             }
         end
@@ -250,12 +250,22 @@ function Termite.new(width, height, font, customCharW, customCharH, options)
             assertType(w, "number")
             assertType(h, "number")
 
-            for y = y, (y + h) - 1 do
-                for x = x, (x + w) - 1 do
+            -- check terminal bounds --
+            if x < 1 or y < 1 or x + w - 1 > self.width or y + h - 1 > self.height then
+                return
+            end
+
+            for y = y, y + h - 1 do
+                for x = x, x + w - 1 do
                     updateStdinChar(self, x, y, " ")
                     self.buffer[y][x] = " "
                 end
             end
+
+            --self.dirty = true
+            --redrawState(self)
+
+
         end,
         ["fill"] = function(self, stylename, x, y, w, h)
             assertType(stylename, "string")
@@ -264,13 +274,18 @@ function Termite.new(width, height, font, customCharW, customCharH, options)
             assertType(w, "number")
             assertType(h, "number")
 
+            -- check terminal bounds --
+            if x < 1 or y < 1 or x + w - 1 > self.width or y + h - 1 > self.height then
+                return
+            end
+
             local fillStylesNames = listStyle(self.fillStyles)
             assert(self.fillStyles[stylename], ("[TermiteError] : Invalid style '%s'. expected styles: %s"):format(stylename, table.concat(fillStylesNames, ", ")))
 
             local char = self.fillStyles[stylename]
             for y = y, (y + h) - 1 do
                 for x = x, (x + w) - 1 do
-                    updateStdinChar(self, x, y, char)
+                    --updateStdinChar(self, x, y, char)
                     self.buffer[y][x] = char
                 end
             end
@@ -278,6 +293,11 @@ function Termite.new(width, height, font, customCharW, customCharH, options)
         ["setCursorPos"] = function(self, x, y)
             assertType(x, "number")
             assertType(y, "number")
+
+            -- check if value is place out of bounds --
+            if x < 1 or y < 1 or x > self.width or y > self.height then
+                return
+            end
 
             self.cursorX, self.cursorY = x or 1, y or 1
         end,
@@ -290,21 +310,83 @@ function Termite.new(width, height, font, customCharW, customCharH, options)
             assertType(val, "boolean")
             
             self.cursorReversed = val
-        end
+        end,
+        ["frame"] = function(self, stylename, x, y, w, h)
+            assertType(stylename, "string")
+            assertType(x, "number")
+            assertType(y, "number")
+            assertType(w, "number")
+            assertType(h, "number")
+
+            -- check terminal bounds --
+            if x < 1 or y < 1 or x + w - 1 > self.width or y + h - 1 > self.height then
+                return
+            end
+
+            local fillStylesNames = listStyle(self.frameStyles)
+            assert(self.fillStyles[stylename], ("[TermiteError] : Invalid style '%s'. expected styles: %s"):format(stylename, table.concat(fillStylesNames, ", ")))
+
+            local left, right = x, x + (w - 1)
+            local top, bottom = y, y + (h - 1)
+            local charStyle = self.fillStyles[stylename]
+
+            -- corners --
+            updateStdinChar(self, left, top, utf8Sub(charStyle, 1, 1))
+            updateStdinChar(self, right, top, utf8Sub(charStyle, 2, 2))
+            updateStdinChar(self, left, bottom, utf8Sub(charStyle, 3, 3))
+            updateStdinChar(self, right, bottom, utf8Sub(charStyle, 4, 4))
+
+            -- faces --
+            local lineHorizontal = utf8Sub(charStyle, 5, 5)
+            local lineVertical = utf8Sub(charStyle, 6, 6)
+            for i = left + 1, right - 1, 1 do
+                updateStdinChar(self, i, top, lineHorizontal)
+                updateStdinChar(self, i, bottom, lineHorizontal)
+            end
+            for i = top + 1, bottom - 1, 1 do
+                updateStdinChar(self, left, i, lineVertical)
+                updateStdinChar(self, right, i, lineVertical)
+            end
+        end,
+        ["setCursorColor"] = function(self, colorName)
+            assertType(colorName, "string")
+            assert(self.schemes[self.currentScheme][colorName], ("[TermiteError] : Invalid color, can't found color named: %s"):format(colorName))
+            local color = self.schemes[self.currentScheme][colorName]
+
+            self.cursorColor[1] = color[1]
+            self.cursorColor[2] = color[2]
+            self.cursorColor[3] = color[3]
+            self.cursorColor[4] = color[4] or 1
+        end,
+        ["setCursorBackColor"] = function(self, colorName)
+            assertType(colorName, "string")
+            assert(self.schemes[self.currentScheme][colorName], ("[TermiteError] : Invalid color, can't found color named: %s"):format(colorName))
+            local color = self.schemes[self.currentScheme][colorName]
+
+            self.cursorBackColor[1] = color[1]
+            self.cursorBackColor[2] = color[2]
+            self.cursorBackColor[3] = color[3]
+            self.cursorBackColor[4] = color[4] or 1
+        end,
     }
 
     -- for easy use, expose all commands as termite functions
-    for fname, func in pairs(self.commands) do
-        Termite[fname] = func
+    for command, fdata in pairs(self.commands) do
+        Termite[command] = function(...)
+            --self:execute(fname, ...)
+            local args = { ... }
+            --table.insert(args, 1, self)
+            table.insert(self.stdin, { command = command, args = args })
+        end
     end
 
     self.canvas:renderTo(function()
-        love.graphics.clear(self.clear)
+        love.graphics.clear({0, 0, 0})
     end)
 
     if options then
         for k, p in pairs(self) do
-            if options[k] then
+            if options[k] and type(self[k]) ~= "function" then
                 self[k] = options[k]
             end
         end
@@ -333,10 +415,10 @@ function Termite:draw()
     if self.dirty then
         local prevColor = { love.graphics.getColor() }
 
-        love.graphics.push()
-        love.graphics.origin()
-
         self.canvas:renderTo(function()
+            love.graphics.push("all")
+            love.graphics.origin()
+
             local fontHeight = self.font:getHeight()
             for y, row in ipairs(self.buffer) do
                 for x, char in ipairs(row) do
@@ -350,7 +432,7 @@ function Termite:draw()
                             love.graphics.setColor(unpack(state.backcolor))
                         end
                         love.graphics.rectangle("fill", left, top + (fontHeight - chHeight), self.charWidth, self.charHeight)
-
+                        
                         -- Character
                         if state.reversed then
                             love.graphics.setColor(unpack(state.backcolor))
@@ -362,6 +444,7 @@ function Termite:draw()
                     end
                 end
             end
+
             self.dirty = false
             love.graphics.pop()
         end)
@@ -377,7 +460,7 @@ function Termite:draw()
     end
 end
 
---- UPdate the terminal engine
+--- Update the terminal engine
 ---@param elapsed number
 function Termite:update(elapsed)
     if self.useInterrupt then
@@ -407,9 +490,8 @@ function Termite:update(elapsed)
                 self.cursorY = self.cursorY + 1
                 
                 if self.cursorY > self.height then
-                    rollup(self, self.cursorY - self.height)
                     self.cursorY = self.height
-                    self.dirty = true
+                    rollup(self, self.cursorY - self.height)
                 end
 
                 self.dirty = true
@@ -427,7 +509,7 @@ function Termite:update(elapsed)
             end
         else
             if self.commands[charCommand.command] then
-                self.commands[charCommand.command](self, unpack(charCommand.args))
+                self.commands[charCommand.command](unpack(charCommand.args))
             else
                 print(("[TermiteError] : Invalid command name, not found command named '%s'"):format(charCommand.command))
             end
@@ -447,31 +529,18 @@ function Termite:update(elapsed)
 end
 
 function Termite:execute(command, ...)
-    table.insert(self.stdin, { command = command, args = { ... } })
+    table.insert(self.stdin, { command = command, args = { self, ... } })
 end
 
-function Termite:puts(x, y, ...)
-    local strData
-    -- argument processing
-    -- shortcut : no coordinates => print at cursor position
-    if type(x) == "string" then
-        strData = x
-    else
-        self.cursorX = x
-        self.cursorY = y
-        strData = string.format(...)
-    end
+function Termite:puts(text, x, y)
+    text = text or ""
 
-    for i, p in utf8.codes(strData) do
+    self.cursorX = x
+    self.cursorY = y
+
+    for i, p in utf8.codes(text) do
         table.insert(self.stdin, utf8.char(p))
     end
 end
-
-
---- put this function o love.keypressed --
-function Termite:interrupt()
-    
-end
-
 
 return Termite
