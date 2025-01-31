@@ -1,8 +1,20 @@
+# Termite
+A rewrite of original [LV-100](https://github.com/Eiyeron/LV-100/tree/master?tab=readme-ov-file) terminal emulator for Love2D
+
+![alt text](assets/example.png)
+
+---
+The focus of this library is to rewrite the original LV-100 library in a modern and expansible way, fixing the old bugs and adding new features.
+
+The syntax tries to resemble the original but with some minor differences.
+
+> [!IMPORTANT]
+> The documentation of the library still in WIP, open a PR if you want suggest new features, contribute with documentation or add examples.
+
+```lua
 function love.load()
     terminal = require 'termite'
-    moonshine = require 'assets.libraries.moonshine'
-    require 'assets.StringTools'
-    timer = require 'assets.libraries.timer'
+    moonshine = require 'moonshine'
 
     screen = moonshine(moonshine.effects.crt)
     --.chain(moonshine.effects.vignette)
@@ -17,19 +29,6 @@ function love.load()
     term.speed = 5000
 
     love.keyboard.setKeyRepeat(true)
-
-    demos = {}
-    demonames = {
-        "simple_print",
-        "credits"
-    }
-    for d = 1, #demonames, 1 do
-        demos[demonames[d]] = require("demo." .. demonames[d])
-    end
-
-    currentDemo = 0
-
-    tmr_anim = timer.new()
 
     term:setCursorVisible(false)
     term:blit([[
@@ -47,28 +46,6 @@ function love.load()
     term:setCursorColor("brightGreen")
     term:print(2, 12, string.justify("by KiwiSky", term.width - 4, " ", "center"))
     term:setCursorColor("white")
-
-    term:print(2, 17, string.justify("Now loading...", term.width - 4, " ", "center"))
-    term:frame("line", 5, 18, term.width - 9, 3)
-
-    term:setCursorBackColor("brightYellow")
-    tmr_anim:script(function(sleep)
-        sleep(0.3)
-        local cx = 6
-        while cx < term.width - 5 do
-            term:print(cx, 19, " ")
-            cx = cx + 1
-            sleep(0.005)
-        end
-
-        term:setCursorBackColor("black")
-        term:setCursorColor("white")
-        term:clear(1, 1, term.width, term.height)
-
-        currentDemo = 2
-        demos[demonames[currentDemo]]()
-        love.load()
-    end)
 end
 
 function love.draw()
@@ -89,23 +66,11 @@ end
 
 function love.update(elapsed)
     term:update(elapsed)
-    if tmr_anim then
-        tmr_anim:update(elapsed)
-    end
 end
+```
 
-function love.keypressed(k)
-    if k == "return" then
-        if currentDemo > 0 then
-            print('das')
-            currentDemo = (currentDemo < #demonames) and currentDemo + 1 or 1
+## Attributions
 
-            term:setCursorBackColor("black")
-            term:setCursorColor("white")
-            term:clear(1, 1, term.width, term.height)
-
-            demos[demonames[currentDemo]]()
-            love.load()
-        end
-    end
-end
+[int10h.org | Great library of oldschool pc fonts](https://int10h.org/)
+[LV-100 by Eiyeron](https://github.com/Eiyeron/LV-100/tree/master?tab=readme-ov-file)
+[Moonshine by VRLD](https://github.com/vrld/moonshine)
