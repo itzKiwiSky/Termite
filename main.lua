@@ -1,34 +1,23 @@
 function love.load()
-    utf8 = require 'utf8'
     terminal = require 'termite'
-    inspect = require 'inspect'
+    local termfont = love.graphics.newFont("assets/phoenixbios.ttf", 18)
 
-    local termfont = love.graphics.newFont("phoenixbios.ttf", 18)
-
-    term = terminal.new(love.graphics.getWidth(), love.graphics.getHeight() - termfont:getHeight(), termfont, nil, nil, {
-    useInterrupt = false
-    })
-    term.speed = 50
-
+    term = terminal.new(love.graphics.getWidth(), love.graphics.getHeight() - termfont:getHeight(), termfont, nil, nil)
+    term.speed = 500
 
     love.keyboard.setKeyRepeat(true)
 
-    --[[
-    for i = 1, 1000, 1 do
-        term:puts(string.format("hello world %s \n", i))
-    end
-    ]]--
-    
-    --print(term.width, term.height)
-    term:setCursorBackColor("cyan")
-    term:clear(1, 1, term.width, term.height)
-    term:setCursorBackColor("black")
-    term:clear(6, 6, term.width - 6, term.height - 6)
-    term:setCursorBackColor("brightCyan")
-    term:setCursorColor("black")
-    term:clear(4, 4, term.width - 6, term.height - 6)
-    term:frame("line", 4, 4, term.width - 6, term.height - 6)
-    term:puts("Termite terminal emulator", 10, 6)
+    term:blit([[
+
+::::::::::: :::::::::: :::::::::  ::::    ::::  ::::::::::: ::::::::::: :::::::::: 
+    :+:     :+:        :+:    :+: +:+:+: :+:+:+     :+:         :+:     :+:        
+    +:+     +:+        +:+    +:+ +:+ +:+:+ +:+     +:+         +:+     +:+        
+    +#+     +#++:++#   +#++:++#:  +#+  +:+  +#+     +#+         +#+     +#++:++#   
+    +#+     +#+        +#+    +#+ +#+       +#+     +#+         +#+     +#+        
+    #+#     #+#        #+#    #+# #+#       #+#     #+#         #+#     #+#        
+    ###     ########## ###    ### ###       ### ###########     ###     ########## 
+
+    ]], 1, 2)
 end
 
 function love.draw()

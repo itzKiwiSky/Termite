@@ -509,17 +509,26 @@ function Termite:execute(command, ...)
     table.insert(self.stdin, { command = command, args = { self, ... } })
 end
 
-function Termite:print(text, x, y)
-    text = text or ""
+function Termite:print(x, y, ...)
+    local text
 
-    assertType(x, "number")
-    assertType(y, "number")
-
-    self.cursorX = x
-    self.cursorY = y
+    if type(x) == "string" then
+        text = x
+    else
+        self:execute("setCursorPos", x, y)
+        text = string.format(...)
+    end
 
     for i, p in utf8.codes(text) do
         table.insert(self.stdin, utf8.char(p))
+    end
+end
+
+function Termite:blit(text, x, y)
+    for line in text:gmatch("[^\r\n]+") do
+        --local t = ("%s\n"):format(line)
+        self:print(x, y, "%s", line)
+        y = y + 1
     end
 end
 
