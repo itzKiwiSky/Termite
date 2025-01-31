@@ -11,7 +11,7 @@ function love.load()
     screen.glow.min_luma = 0.2
     ctrframe = love.graphics.newImage("assets/perfect_crt_noframe.png")
 
-    local termfont = love.graphics.newFont("assets/phoenixbios.ttf", 24)
+    local termfont = love.graphics.newFont("assets/toshibasat.ttf", 24)
 
     term = terminal.new(love.graphics.getWidth(), love.graphics.getHeight() - termfont:getHeight(), termfont, nil, nil)
     term.speed = 5000
@@ -19,14 +19,15 @@ function love.load()
     love.keyboard.setKeyRepeat(true)
 
     demos = {}
-    demonames = {}
-    local df = love.filesystem.getDirectoryItems("demo")
-    for d = 1, #df, 1 do
-        demos[df[d]:gsub(".lua", "")] = require("demo." .. df[d]:gsub(".lua", ""))
-        demonames[d] = df[d]:gsub(".lua", "")
+    demonames = {
+        "simple_print",
+        "credits"
+    }
+    for d = 1, #demonames, 1 do
+        demos[demonames[d]] = require("demo." .. demonames[d])
     end
 
-    currentDemo = 1
+    currentDemo = 0
 
     tmr_anim = timer.new()
 
@@ -41,26 +42,30 @@ function love.load()
     ]], 1, 2)
 
     term:frame("line", 1, 1, term.width, term.height)
+    term:setCursorColor("brightCyan")
     term:print(2, 10, string.justify("A rewrite of a classic LV-100 terminal emulator", term.width - 4, " ", "center"))
+    term:setCursorColor("brightGreen")
     term:print(2, 12, string.justify("by KiwiSky", term.width - 4, " ", "center"))
+    term:setCursorColor("white")
 
-    term:print(2, 14, string.justify("Now loading...", term.width - 4, " ", "center"))
-    term:frame("line", 5, 15, term.width - 9, 3)
+    term:print(2, 17, string.justify("Now loading...", term.width - 4, " ", "center"))
+    term:frame("line", 5, 18, term.width - 9, 3)
 
     term:setCursorBackColor("brightYellow")
     tmr_anim:script(function(sleep)
         sleep(0.3)
         local cx = 6
         while cx < term.width - 5 do
-            term:print(cx, 16, " ")
+            term:print(cx, 19, " ")
             cx = cx + 1
-            sleep(0.05)
+            sleep(0.005)
         end
 
         term:setCursorBackColor("black")
         term:setCursorColor("white")
         term:clear(1, 1, term.width, term.height)
 
+        currentDemo = 2
         demos[demonames[currentDemo]]()
         love.load()
     end)
@@ -91,5 +96,17 @@ function love.update(elapsed)
 end
 
 function love.keypressed(k)
-    
+    if k == "return" then
+        if currentDemo > 0 then
+            print('das')
+            currentDemo = (currentDemo < #demonames) and currentDemo + 1 or 1
+
+            term:setCursorBackColor("black")
+            term:setCursorColor("white")
+            term:clear(1, 1, term.width, term.height)
+
+            demos[demonames[currentDemo]]()
+            love.load()
+        end
+    end
 end
