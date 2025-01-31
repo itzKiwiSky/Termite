@@ -185,22 +185,22 @@ function Termite.new(width, height, font, customCharW, customCharH, options)
     -- exposing these interfaces to easily integrate new color schemes without modifying the original script --
     self.schemes = {
         basic = {
-            ["black"] = {0, 0, 0},
-            ["blue"] = {0, 0, 0.5},
-            ["brightBlack"] = {0.5, 0.5, 0.5},
-            ["brightBlue"] = {0, 0, 1},
-            ["brightCyan"] = {0, 1, 1},
-            ["brightGreen"] = {0, 1, 0},
-            ["brightMagenta"] = {1, 0, 1},
-            ["brightRed"] = {1, 0, 0},
-            ["brightWhite"] = {1, 1, 1},
-            ["brightYellow"] = {1, 1, 0},
-            ["cyan"] = {0, 0.5, 0.5},
-            ["green"] = {0, 0.5, 0},
+            ["black"]   = {0, 0, 0},
+            ["red"]     = {0.5, 0, 0},
+            ["green"]   = {0, 0.5, 0},
+            ["yellow"]  = {0.5, 0.5, 0},
+            ["blue"]    = {0, 0, 0.5},
             ["magenta"] = {0.5, 0, 0.5},
-            ["red"] = {0.5, 0, 0},
-            ["white"] = {0.75, 0.75, 0.75},
-            ["yellow"] = {0.5, 0.5, 0}
+            ["cyan"]    = {0, 0.5, 0.5},
+            ["white"]   = {0.75, 0.75, 0.75},
+            ["brightBlack"]   = {0.5, 0.5, 0.5},
+            ["brightRed"]     = {1, 0, 0},
+            ["brightGreen"]   = {0, 1, 0},
+            ["brightYellow"]  = {1, 1, 0},
+            ["brightBlue"]    = {0, 0, 1},
+            ["brightMagenta"] = {1, 0, 1},
+            ["brightCyan"]    = {0, 1, 1},
+            ["brightWhite"]   = {1, 1, 1}
         }
     }
 
