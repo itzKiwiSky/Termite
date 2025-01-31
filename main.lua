@@ -6,7 +6,7 @@ function love.load()
     local termfont = love.graphics.newFont("phoenixbios.ttf", 18)
 
     term = terminal.new(love.graphics.getWidth(), love.graphics.getHeight() - termfont:getHeight(), termfont, nil, nil, {
-    useInterrupt = true
+    useInterrupt = false
     })
     term.speed = 50
 
@@ -20,9 +20,14 @@ function love.load()
     ]]--
     
     --print(term.width, term.height)
+    term:setCursorBackColor("cyan")
+    term:clear(1, 1, term.width, term.height)
+    term:setCursorBackColor("black")
+    term:clear(6, 6, term.width - 6, term.height - 6)
     term:setCursorBackColor("brightCyan")
     term:setCursorColor("black")
-    term:clear(4, 4, term.width - 8, term.height - 8)
+    term:clear(4, 4, term.width - 6, term.height - 6)
+    term:frame("line", 4, 4, term.width - 6, term.height - 6)
     term:puts("Termite terminal emulator", 10, 6)
 end
 

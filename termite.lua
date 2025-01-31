@@ -182,28 +182,6 @@ function Termite.new(width, height, font, customCharW, customCharH, options)
     self.cursorChar = "_"
     self.speed = 800
 
-    --self.print = terminal_print
-    --self.blit = terminal_blit
-    --self.clear = terminal_clear
-    --self.savePosition = terminal_save_position
-    --self.loadPosition = terminal_load_position
-    --self.setCursorPosition = terminal_move_to
-    --self.hideCursor = terminal_hide_cursor
-    --self.showCursor = terminal_show_cursor
-    --self.reverseCursor = terminal_reverse
-    --self.setCursorColor = terminal_set_cursor_color
-    --self.setCursorBackColor = terminal_set_cursor_backcolor
-    --self.rollUp = terminal_roll_up
-    --self.getCursorColor = terminal_get_cursor_color
-    --self.blitSprite = blitSprite
-
-    --self.getTerminalState = getTerminalState
-    --self.applyTerminalState = applyTerminalState
-
-    --self.frameShadow = terminal_frame_shadow
-    --self.frame = terminal_frame
-    --self.fill = terminal_fill
-
     -- exposing these interfaces to easily integrate new color schemes without modifying the original script --
     self.schemes = {
         basic = {
@@ -264,8 +242,6 @@ function Termite.new(width, height, font, customCharW, customCharH, options)
 
             --self.dirty = true
             --redrawState(self)
-
-
         end,
         ["fill"] = function(self, stylename, x, y, w, h)
             assertType(stylename, "string")
@@ -280,7 +256,7 @@ function Termite.new(width, height, font, customCharW, customCharH, options)
             end
 
             local fillStylesNames = listStyle(self.fillStyles)
-            assert(self.fillStyles[stylename], ("[TermiteError] : Invalid style '%s'. expected styles: %s"):format(stylename, table.concat(fillStylesNames, ", ")))
+            assert(self.fillStyles[stylename] ~= nil, ("[TermiteError] : Invalid style '%s'. expected styles: %s"):format(stylename, table.concat(fillStylesNames, ", ")))
 
             local char = self.fillStyles[stylename]
             for y = y, (y + h) - 1 do
@@ -324,11 +300,11 @@ function Termite.new(width, height, font, customCharW, customCharH, options)
             end
 
             local fillStylesNames = listStyle(self.frameStyles)
-            assert(self.fillStyles[stylename], ("[TermiteError] : Invalid style '%s'. expected styles: %s"):format(stylename, table.concat(fillStylesNames, ", ")))
+            assert(self.frameStyles[stylename] ~= nil, ("[TermiteError] : Invalid style '%s'. expected styles: %s"):format(stylename, table.concat(fillStylesNames, ", ")))
 
             local left, right = x, x + (w - 1)
             local top, bottom = y, y + (h - 1)
-            local charStyle = self.fillStyles[stylename]
+            local charStyle = self.frameStyles[stylename]
 
             -- corners --
             updateStdinChar(self, left, top, utf8Sub(charStyle, 1, 1))
@@ -529,11 +505,15 @@ function Termite:update(elapsed)
 end
 
 function Termite:execute(command, ...)
+    assertType(command, "string")
     table.insert(self.stdin, { command = command, args = { self, ... } })
 end
 
-function Termite:puts(text, x, y)
+function Termite:print(text, x, y)
     text = text or ""
+
+    assertType(x, "number")
+    assertType(y, "number")
 
     self.cursorX = x
     self.cursorY = y
